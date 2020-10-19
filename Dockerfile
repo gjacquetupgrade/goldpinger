@@ -1,8 +1,4 @@
-FROM golang:1.14-alpine as builder
-
-# Install our build tools
-
-RUN apk add --update git make bash
+FROM docker-upgrade.artifactory.build.upgrade.com/go-builder:2.0.20200722.0-212.1.15.2-214 as builder
 
 # Get dependencies
 
