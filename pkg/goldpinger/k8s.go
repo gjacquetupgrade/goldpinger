@@ -15,35 +15,50 @@
 package goldpinger
 
 import (
-	"log"
 	"io/ioutil"
+
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// namespace is the namespace for the goldpinger pod
+var namespace = getNamespace()
+
+// GoldpingerPod contains just the basic info needed to ping and keep track of a given goldpinger pod
+type GoldpingerPod struct {
+	Name   string // Name is the name of the pod
+	PodIP  string // PodIP is the IP address of the pod
+	HostIP string // HostIP is the IP address of the host where the pod lives
+}
 
 func getNamespace() string {
 	b, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
-		log.Println("Unable to determine namespace: ", err.Error())
+		zap.L().Warn("Unable to determine namespace", zap.Error(err))
 		return ""
 	}
 	namespace := string(b)
 	return namespace
 }
 
-// GetAllPods returns a map of Pod IP to Host IP based on a label selector defined in config
-func GetAllPods() map[string]string {
+// GetAllPods returns a mapping from a pod name to a pointer to a GoldpingerPod(s)
+func GetAllPods() map[string]*GoldpingerPod {
 	timer := GetLabeledKubernetesCallsTimer()
-	pods, err := GoldpingerConfig.KubernetesClient.CoreV1().Pods(getNamespace()).List(metav1.ListOptions{LabelSelector: GoldpingerConfig.LabelSelector})
+	pods, err := GoldpingerConfig.KubernetesClient.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: GoldpingerConfig.LabelSelector})
 	if err != nil {
-		log.Println("Error getting pods for selector: ", err.Error())
+		zap.L().Error("Error getting pods for selector", zap.String("selector", GoldpingerConfig.LabelSelector), zap.Error(err))
 		CountError("kubernetes_api")
 	} else {
 		timer.ObserveDuration()
 	}
 
-	var podsreturn = make(map[string]string)
+	var podMap = make(map[string]*GoldpingerPod)
 	for _, pod := range pods.Items {
-		podsreturn[pod.Status.PodIP] = pod.Status.HostIP
+		podMap[pod.Name] = &GoldpingerPod{
+			Name:   pod.Name,
+			PodIP:  pod.Status.PodIP,
+			HostIP: pod.Status.HostIP,
+		}
 	}
-	return podsreturn
+	return podMap
 }

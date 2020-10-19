@@ -1,15 +1,10 @@
-FROM golang:1.11-alpine as builder
-
-# Install our build tools
-
-RUN apk add --update git make bash
-RUN go get -u github.com/golang/dep/cmd/dep
+FROM docker-upgrade.artifactory.build.upgrade.com/go-builder:2.0.20200722.0-212.1.15.2-214 as builder
 
 # Get dependencies
 
-WORKDIR /go/src/github.com/bloomberg/goldpinger
-COPY Gopkg.toml Gopkg.lock Makefile ./
-RUN make vendor
+WORKDIR /w
+COPY go.mod go.sum /w/
+RUN go mod download
 
 # Build goldpinger
 
@@ -19,7 +14,6 @@ RUN make bin/goldpinger
 # Build the asset container, copy over goldpinger
 
 FROM scratch
-COPY --from=builder /go/src/github.com/bloomberg/goldpinger/bin/goldpinger /goldpinger
+COPY --from=builder /w/bin/goldpinger /goldpinger
 COPY ./static /static
 ENTRYPOINT ["/goldpinger", "--static-file-path", "/static"]
-

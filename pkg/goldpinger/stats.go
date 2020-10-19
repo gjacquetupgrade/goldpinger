@@ -15,12 +15,13 @@
 package goldpinger
 
 import (
-	"log"
+	"context"
 	"time"
 
-	"github.com/bloomberg/goldpinger/pkg/models"
+	"github.com/bloomberg/goldpinger/v3/pkg/models"
 	"github.com/go-openapi/strfmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 )
 
 var (
@@ -82,6 +83,16 @@ var (
 			"type",
 		},
 	)
+	goldpingerDnsErrorsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "goldpinger_dns_errors_total",
+			Help: "Statistics of DNS errors per instance",
+		},
+		[]string{
+			"goldpinger_instance",
+			"host",
+		},
+	)
 
 	bootTime = time.Now()
 )
@@ -92,10 +103,11 @@ func init() {
 	prometheus.MustRegister(goldpingerResponseTimePeersHistogram)
 	prometheus.MustRegister(goldpingerResponseTimeKubernetesHistogram)
 	prometheus.MustRegister(goldpingerErrorsCounter)
-	log.Println("Metrics setup - see /metrics")
+	prometheus.MustRegister(goldpingerDnsErrorsCounter)
+	zap.L().Info("Metrics setup - see /metrics")
 }
 
-func GetStats() *models.PingResults {
+func GetStats(ctx context.Context) *models.PingResults {
 	// GetStats no longer populates the received and made calls - use metrics for that instead
 	return &models.PingResults{
 		BootTime: strfmt.DateTime(bootTime),
@@ -128,6 +140,14 @@ func CountError(errorType string) {
 	goldpingerErrorsCounter.WithLabelValues(
 		GoldpingerConfig.Hostname,
 		errorType,
+	).Inc()
+}
+
+// counts instances of dns errors
+func CountDnsError(host string) {
+	goldpingerDnsErrorsCounter.WithLabelValues(
+		GoldpingerConfig.Hostname,
+		host,
 	).Inc()
 }
 

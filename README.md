@@ -10,22 +10,25 @@ Oh, and it gives you the graph below for your cluster. Check out the [video expl
 
 ## On the menu
 
-- [Rationale](#rationale)
-- [Quick start](#quick-start)
-- [Building](#building)
-  - [Compiling using a multi-stage Dockerfile](#compiling-using-a-multi-stage-dockerfile)
-  - [Compiling locally](#compiling-locally)
-- [Installation](#installation)
-  - [Authentication with Kubernetes API](#authentication-with-kubernetes-api)
-  - [Example YAML](#example-yaml)
-- [Usage](#usage)
-  - [UI](#ui)
-  - [API](#api)
-  - [Prometheus](#prometheus)
-  - [Grafana](#grafana)
-  - [Alert Manager](#alert-manager)
-- [Contributions](#contributions)
-- [License](#license)
+- [Goldpinger ![Build Status](https://travis-ci.com/bloomberg/goldpinger)](#goldpinger-build-statushttpstravis-cicombloomberggoldpinger)
+  - [On the menu](#on-the-menu)
+  - [Rationale](#rationale)
+  - [Quick start](#quick-start)
+  - [Building](#building)
+    - [Compiling using a multi-stage Dockerfile](#compiling-using-a-multi-stage-dockerfile)
+    - [Compiling locally](#compiling-locally)
+  - [Installation](#installation)
+    - [Authentication with Kubernetes API](#authentication-with-kubernetes-api)
+    - [Example YAML](#example-yaml)
+    - [Note on DNS](#note-on-dns)
+  - [Usage](#usage)
+    - [UI](#ui)
+    - [API](#api)
+    - [Prometheus](#prometheus)
+    - [Grafana](#grafana)
+    - [Alert Manager](#alert-manager)
+  - [Contributions](#contributions)
+  - [License](#license)
 
 ## Rationale
 
@@ -38,13 +41,19 @@ If you'd like to know more, you can watch [our presentation at Kubecon 2018 Seat
 
 ## Quick start
 
+Getting from sources:
+
 ```sh
 go get github.com/bloomberg/goldpinger/cmd/goldpinger
 goldpinger --help
 ```
 
-Note, that in order to guarantee correct versions of dependencies, the project [uses `dep`](./Makefile).
+Getting from [docker hub](https://hub.docker.com/r/bloomberg/goldpinger):
 
+```sh
+# get from docker hub
+docker pull bloomberg/goldpinger
+```
 
 ## Building
 
@@ -67,27 +76,24 @@ This was contributed via [@michiel](https://github.com/michiel) - kudos !
 
 ### Compiling locally
 
-In order to build `Goldpinger`, you are going to need `go` version 1.10+, `dep`, and `docker`.
+In order to build `Goldpinger`, you are going to need `go` version 1.13+ and `docker`.
 
 Building from source code consists of compiling the binary and building a [Docker image](./build/Dockerfile-simple):
 
 ```sh
-# step 0: check out the code into your $GOPATH
-go get github.com/bloomberg/goldpinger/cmd/goldpinger 
-cd $GOPATH/src/github.com/bloomberg/goldpinger
+# step 0: check out the code
+git clone https://github.com/bloomberg/goldpinger.git
+cd goldpinger
 
-# step 1: download the dependencies via dep ensure
-make vendor
-
-# step 2: compile the binary for the desired architecture
+# step 1: compile the binary for the desired architecture
 make bin/goldpinger
 # at this stage you should be able to run the binary
 ./bin/goldpinger --help
 
-# step 3: build the docker image containing the binary
+# step 2: build the docker image containing the binary
 make build
 
-# step 4: push the image somewhere
+# step 3: push the image somewhere
 namespace="docker.io/myhandle/" make tag
 namespace="docker.io/myhandle/" make push
 ```
@@ -103,9 +109,7 @@ namespace="docker.io/myhandle/" make push
 ### Example YAML
 
 
-Here's an example of what you can do (using the in-cluster authentication to `Kubernetes` apiserver). 
-
-:warning: Replace `docker.io/mynamespace-replaceme/goldpinger:1.0.0` with the actual tag you built.
+Here's an example of what you can do (using the in-cluster authentication to `Kubernetes` apiserver).
 
 ```yaml
 ---
@@ -113,46 +117,86 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: goldpinger
+  namespace: default
+  labels:
+    app: goldpinger
 spec:
   updateStrategy:
     type: RollingUpdate
   selector:
     matchLabels:
       app: goldpinger
-      version: "1.0.0"
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8080'
       labels:
         app: goldpinger
-        version: "1.0.0"
     spec:
+      serviceAccount: "goldpinger-serviceaccount"
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
       containers:
         - name: goldpinger
           env:
             - name: HOST
               value: "0.0.0.0"
             - name: PORT
-              value: "80"
+              value: "8080"
             # injecting real hostname will make for easier to understand graphs/metrics
             - name: HOSTNAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-          image: "docker.io/mynamespace-replaceme/goldpinger:1.0.0"
+            # podIP is used to select a randomized subset of nodes to ping.
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          image: "docker.io/bloomberg/goldpinger:2.0.2"
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            limits:
+              memory: 80Mi
+            requests:
+              cpu: 1m
+              memory: 40Mi
           ports:
-            - containerPort: 80
+            - containerPort: 8080
               name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: goldpinger
+  namespace: default
   labels:
     app: goldpinger
 spec:
   type: NodePort
   ports:
-    - port: 80
+    - port: 8080
       nodePort: 30080
       name: http
   selector:
@@ -179,6 +223,28 @@ subjects:
 
 You can also see [an example of using `kubeconfig` in the `./extras`](./extras/example-with-kubeconfig.yaml).
 
+### Note on DNS
+
+Note, that on top of resolving the other pods, all instances can also try to resolve arbitrary DNS. This allows you to test your DNS setup.
+
+From `--help`:
+
+```sh
+--host-to-resolve=      A host to attempt dns resolve on (space delimited) [$HOSTS_TO_RESOLVE]
+```
+
+So in order to test two domains, we could add an extra env var to the example above:
+
+```yaml
+            - name: HOSTS_TO_RESOLVE
+              value: "www.bloomberg.com one.two.three"
+```
+
+and `goldpinger` should show something like this:
+
+![screenshot-DNS-resolution](./extras/dns-screenshot.png)
+
+
 ## Usage
 
 ### UI
@@ -191,7 +257,7 @@ You can click on various nodes to gray out the clutter and see more information.
 
 ### API
 
-The API exposed is via a well-defined [`Swagger` spec](./swagger.yml). 
+The API exposed is via a well-defined [`Swagger` spec](./swagger.yml).
 
 The spec is used to generate both the server and the client of `Goldpinger`. If you make changes, you can re-generate them using [go-swagger](https://github.com/go-swagger/go-swagger) via [`make swagger`](./Makefile)
 
@@ -223,8 +289,8 @@ To get you started, here's a rule that will trigger an alert if there are any no
 
 ```yaml
 alert: goldpinger_nodes_unhealthy
-expr: sum(goldpinger_nodes_healthy_total{status="unhealthy"})
-  BY (goldpinger_instance) > 0
+expr: sum(goldpinger_nodes_health_total{status="unhealthy"})
+  BY (instance, goldpinger_instance) > 0
 for: 5m
 annotations:
   description: |
@@ -247,3 +313,5 @@ Before you create that PR, please make sure you read [CONTRIBUTING](./CONTRIBUTI
 ## License
 
 Please read the [LICENSE](./LICENSE) file here.
+
+For each version built by travis, there is also an additional version, appended with `-vendor`, which contains all source code of the dependencies used in `goldpinger`.

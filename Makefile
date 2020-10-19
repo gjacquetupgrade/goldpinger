@@ -1,10 +1,10 @@
 name ?= goldpinger
-version ?= 1.2.0
+version ?= v3.0.0
 bin ?= goldpinger
 pkg ?= "github.com/bloomberg/goldpinger"
 tag = $(name):$(version)
 goos ?= ${GOOS}
-namespace ?= ""
+namespace ?= "bloomberg/"
 files = $(shell find . -iname "*.go")
 
 
@@ -17,8 +17,9 @@ clean:
 
 vendor:
 	rm -rf ./vendor
-	dep ensure -v -vendor-only
+	go mod vendor
 
+# Download the latest swagger releases from: https://github.com/go-swagger/go-swagger/releases/
 swagger:
 	swagger generate server -t pkg -f ./swagger.yml --exclude-main -A goldpinger && \
 	swagger generate client -t pkg -f ./swagger.yml -A goldpinger
@@ -38,8 +39,19 @@ push:
 
 run:
 	go run ./cmd/goldpinger/main.go
-	
+
 version:
 	@echo $(tag)
 
-.PHONY: clean vendor swagger build build-multistage tag push run version
+
+vendor-build:
+	docker build -t $(tag)-vendor --build-arg TAG=$(tag) -f ./build/Dockerfile-vendor .
+
+vendor-tag:
+	docker tag $(tag)-vendor $(namespace)$(tag)-vendor
+
+vendor-push:
+	docker push $(namespace)$(tag)-vendor
+
+
+.PHONY: clean vendor swagger build build-multistage vendor-build vendor-tag vendor-push tag push run version

@@ -6,14 +6,14 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // CheckAllPodResult check all pod result
+//
 // swagger:model CheckAllPodResult
 type CheckAllPodResult struct {
 
@@ -24,11 +24,15 @@ type CheckAllPodResult struct {
 	// o k
 	OK *bool `json:"OK,omitempty"`
 
+	// pod IP
+	// Format: ipv4
+	PodIP strfmt.IPv4 `json:"PodIP,omitempty"`
+
 	// error
 	Error string `json:"error,omitempty"`
 
 	// response
-	Response CheckResults `json:"response,omitempty"`
+	Response *CheckResults `json:"response,omitempty"`
 
 	// status code
 	StatusCode int32 `json:"status-code,omitempty"`
@@ -39,6 +43,10 @@ func (m *CheckAllPodResult) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateHostIP(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validatePodIP(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -65,17 +73,32 @@ func (m *CheckAllPodResult) validateHostIP(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *CheckAllPodResult) validatePodIP(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.PodIP) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("PodIP", "body", "ipv4", m.PodIP.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (m *CheckAllPodResult) validateResponse(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Response) { // not required
 		return nil
 	}
 
-	if err := m.Response.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
-			return ve.ValidateName("response")
+	if m.Response != nil {
+		if err := m.Response.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("response")
+			}
+			return err
 		}
-		return err
 	}
 
 	return nil

@@ -6,14 +6,14 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // PodResult pod result
+//
 // swagger:model PodResult
 type PodResult struct {
 
@@ -24,11 +24,22 @@ type PodResult struct {
 	// o k
 	OK *bool `json:"OK,omitempty"`
 
+	// ping time
+	// Format: date-time
+	PingTime strfmt.DateTime `json:"PingTime,omitempty"`
+
+	// pod IP
+	// Format: ipv4
+	PodIP strfmt.IPv4 `json:"PodIP,omitempty"`
+
 	// error
 	Error string `json:"error,omitempty"`
 
 	// response
 	Response *PingResults `json:"response,omitempty"`
+
+	// wall clock time in milliseconds
+	ResponseTimeMs int64 `json:"response-time-ms,omitempty"`
 
 	// status code
 	StatusCode int32 `json:"status-code,omitempty"`
@@ -39,6 +50,14 @@ func (m *PodResult) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateHostIP(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validatePingTime(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validatePodIP(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -59,6 +78,32 @@ func (m *PodResult) validateHostIP(formats strfmt.Registry) error {
 	}
 
 	if err := validate.FormatOf("HostIP", "body", "ipv4", m.HostIP.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *PodResult) validatePingTime(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.PingTime) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("PingTime", "body", "date-time", m.PingTime.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *PodResult) validatePodIP(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.PodIP) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("PodIP", "body", "ipv4", m.PodIP.String(), formats); err != nil {
 		return err
 	}
 

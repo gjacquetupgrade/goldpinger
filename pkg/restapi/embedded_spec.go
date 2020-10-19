@@ -21,7 +21,7 @@ func init() {
   "swagger": "2.0",
   "info": {
     "title": "Goldpinger",
-    "version": "1.0.0"
+    "version": "3.0.0"
   },
   "paths": {
     "/check": {
@@ -124,6 +124,10 @@ func init() {
           "type": "boolean",
           "default": false
         },
+        "PodIP": {
+          "type": "string",
+          "format": "ipv4"
+        },
         "error": {
           "type": "string"
         },
@@ -143,6 +147,12 @@ func init() {
           "type": "boolean",
           "default": false
         },
+        "dnsResults": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/DnsResults"
+          }
+        },
         "hosts": {
           "type": "array",
           "items": {
@@ -155,6 +165,9 @@ func init() {
               "podIP": {
                 "type": "string",
                 "format": "ipv4"
+              },
+              "podName": {
+                "type": "string"
               }
             }
           }
@@ -177,8 +190,33 @@ func init() {
     },
     "CheckResults": {
       "type": "object",
+      "properties": {
+        "dnsResults": {
+          "$ref": "#/definitions/DnsResults"
+        },
+        "podResults": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/PodResult"
+          }
+        }
+      }
+    },
+    "DnsResult": {
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "response-time-ms": {
+          "type": "number",
+          "format": "int64"
+        }
+      }
+    },
+    "DnsResults": {
+      "type": "object",
       "additionalProperties": {
-        "$ref": "#/definitions/PodResult"
+        "$ref": "#/definitions/DnsResult"
       }
     },
     "HealthCheckResults": {
@@ -221,11 +259,24 @@ func init() {
           "type": "boolean",
           "default": false
         },
+        "PingTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "PodIP": {
+          "type": "string",
+          "format": "ipv4"
+        },
         "error": {
           "type": "string"
         },
         "response": {
           "$ref": "#/definitions/PingResults"
+        },
+        "response-time-ms": {
+          "description": "wall clock time in milliseconds",
+          "type": "number",
+          "format": "int64"
         },
         "status-code": {
           "type": "integer",
@@ -239,7 +290,7 @@ func init() {
   "swagger": "2.0",
   "info": {
     "title": "Goldpinger",
-    "version": "1.0.0"
+    "version": "3.0.0"
   },
   "paths": {
     "/check": {
@@ -342,6 +393,10 @@ func init() {
           "type": "boolean",
           "default": false
         },
+        "PodIP": {
+          "type": "string",
+          "format": "ipv4"
+        },
         "error": {
           "type": "string"
         },
@@ -361,20 +416,16 @@ func init() {
           "type": "boolean",
           "default": false
         },
+        "dnsResults": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/DnsResults"
+          }
+        },
         "hosts": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "hostIP": {
-                "type": "string",
-                "format": "ipv4"
-              },
-              "podIP": {
-                "type": "string",
-                "format": "ipv4"
-              }
-            }
+            "$ref": "#/definitions/CheckAllResultsHostsItems0"
           }
         },
         "hosts-healthy": {
@@ -393,10 +444,51 @@ func init() {
         }
       }
     },
+    "CheckAllResultsHostsItems0": {
+      "type": "object",
+      "properties": {
+        "hostIP": {
+          "type": "string",
+          "format": "ipv4"
+        },
+        "podIP": {
+          "type": "string",
+          "format": "ipv4"
+        },
+        "podName": {
+          "type": "string"
+        }
+      }
+    },
     "CheckResults": {
       "type": "object",
+      "properties": {
+        "dnsResults": {
+          "$ref": "#/definitions/DnsResults"
+        },
+        "podResults": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/PodResult"
+          }
+        }
+      }
+    },
+    "DnsResult": {
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "response-time-ms": {
+          "type": "number",
+          "format": "int64"
+        }
+      }
+    },
+    "DnsResults": {
+      "type": "object",
       "additionalProperties": {
-        "$ref": "#/definitions/PodResult"
+        "$ref": "#/definitions/DnsResult"
       }
     },
     "HealthCheckResults": {
@@ -439,11 +531,24 @@ func init() {
           "type": "boolean",
           "default": false
         },
+        "PingTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "PodIP": {
+          "type": "string",
+          "format": "ipv4"
+        },
         "error": {
           "type": "string"
         },
         "response": {
           "$ref": "#/definitions/PingResults"
+        },
+        "response-time-ms": {
+          "description": "wall clock time in milliseconds",
+          "type": "number",
+          "format": "int64"
         },
         "status-code": {
           "type": "integer",
