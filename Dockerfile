@@ -1,14 +1,14 @@
-FROM docker-upgrade.artifactory.build.upgrade.com/go-builder:2.0.20200722.0-212.1.15.2-214 as builder
+FROM docker-upgrade.artifactory.build.upgrade.com/go-builder:2.0.20210617.0-15.1.16.5-6 as builder
 
 # Get dependencies
 
 WORKDIR /w
-COPY go.mod go.sum /w/
+COPY --chown=upgrade:upgrade go.mod go.sum /w/
 RUN go mod download
 
 # Build goldpinger
 
-COPY . ./
+COPY --chown=upgrade:upgrade . ./
 RUN make bin/goldpinger
 
 # Build the asset container, copy over goldpinger
